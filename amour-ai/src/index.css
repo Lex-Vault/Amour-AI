@@ -1,0 +1,217 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Amour AI Design System - Premium Dating App Assistant */
+
+@layer base {
+  :root {
+    /* Dark Feminine Elegance - Black Cherry & Metallic Gold */
+    --background: 270 9% 4%;
+    --foreground: 0 0% 100%;
+
+    /* Black Cherry Red - Primary Brand */
+    --primary: 349 100% 18%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 349 100% 23%;
+    --primary-dark: 349 100% 13%;
+
+    /* Metallic Gold Palette */
+    --secondary: 47 51% 65%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 300 7% 8%;
+    --muted-foreground: 288 5% 77%;
+
+    /* Soft Cream Accent */
+    --accent: 43 100% 83%;
+    --accent-foreground: 0 0% 0%;
+    --accent-light: 43 100% 87%;
+    --accent-dark: 43 100% 78%;
+
+    /* Cherry Blush */
+    --blush: 349 100% 23%;
+    --blush-foreground: 0 0% 100%;
+
+    /* Card & Surface Colors */
+    --card: 300 7% 11%;
+    --card-foreground: 0 0% 100%;
+    --popover: 300 7% 11%;
+    --popover-foreground: 0 0% 100%;
+
+    /* Interactive Elements */
+    --border: 300 7% 16%;
+    --input: 300 7% 8%;
+    --ring: 349 100% 18%;
+
+    /* Status Colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Feminine Elegance Gradients */
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(349 100% 12%) 0%,
+      hsl(270 9% 4%) 100%
+    );
+    --gradient-card: linear-gradient(
+      145deg,
+      hsl(300 7% 11%) 0%,
+      hsl(300 7% 13%) 100%
+    );
+    --gradient-accent: linear-gradient(
+      135deg,
+      hsl(43 100% 83%) 0%,
+      hsl(47 51% 65%) 100%
+    );
+    --gradient-subtle: linear-gradient(
+      180deg,
+      hsl(300 7% 8%) 0%,
+      hsl(300 7% 6%) 100%
+    );
+    --gradient-romantic: linear-gradient(
+      135deg,
+      hsl(349 100% 18%) 0%,
+      hsl(47 51% 65%) 100%
+    );
+    --gradient-royal: linear-gradient(
+      135deg,
+      hsl(349 100% 18%) 0%,
+      hsl(47 51% 65%) 50%,
+      hsl(43 100% 83%) 100%
+    );
+
+    /* Elegant Shadows */
+    --shadow-card: 0 4px 20px -2px hsl(349 100% 8% / 0.4);
+    --shadow-card-hover: 0 8px 30px -4px hsl(349 100% 8% / 0.5);
+    --shadow-hero: 0 20px 60px -20px hsl(349 100% 8% / 0.6);
+    --shadow-romantic: 0 10px 40px -10px hsl(47 51% 65% / 0.25);
+    --shadow-glow: 0 0 40px hsl(349 100% 18% / 0.4);
+
+    /* Smooth Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 300 12% 7%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 349 100% 18%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 349 100% 18%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 300 7% 16%;
+    --sidebar-ring: 349 100% 18%;
+  }
+
+  .dark {
+    /* Enhanced Dark Mode - Feminine Elegance */
+    --background: 270 9% 3%;
+    --foreground: 0 0% 100%;
+    --primary: 349 100% 16%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 47 51% 62%;
+    --secondary-foreground: 0 0% 0%;
+    --accent: 43 100% 80%;
+    --accent-foreground: 0 0% 0%;
+    --muted: 300 7% 6%;
+    --muted-foreground: 288 5% 77%;
+    --card: 300 7% 9%;
+    --card-foreground: 0 0% 100%;
+    --border: 300 7% 14%;
+    --input: 300 7% 6%;
+    --ring: 349 100% 16%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* Luxurious Button Variants */
+  .btn-hero {
+    @apply bg-gradient-to-r from-primary to-primary-dark text-primary-foreground font-bold px-10 py-5 rounded-full shadow-xl hover:shadow-2xl hover:shadow-primary/50 transform hover:scale-105 transition-all duration-300;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground font-bold px-8 py-4 rounded-xl hover:bg-primary-light shadow-lg hover:shadow-xl hover:shadow-primary/40 transform hover:-translate-y-1 transition-all duration-300;
+  }
+
+  .btn-outline {
+    @apply border-2 border-secondary text-secondary font-bold px-8 py-4 rounded-xl hover:bg-secondary hover:text-secondary-foreground shadow-lg hover:shadow-xl hover:shadow-secondary/40 transform hover:-translate-y-1 transition-all duration-300;
+  }
+
+  /* Royal Card Styles */
+  .card-premium {
+    @apply bg-gradient-to-br from-card via-card to-primary/10 border border-border/50 rounded-2xl p-8 shadow-xl hover:shadow-2xl hover:shadow-primary/30 transform hover:-translate-y-2 transition-all duration-300;
+  }
+
+  .card-feature {
+    @apply bg-card border border-border/50 rounded-2xl p-8 shadow-lg hover:shadow-xl hover:shadow-primary/20 transform hover:-translate-y-1 transition-all duration-300 backdrop-blur-sm;
+  }
+
+  /* Section Spacing */
+  .section-padding {
+    @apply py-20 px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Royal Typography */
+  .hero-title {
+    @apply text-5xl sm:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent leading-tight;
+  }
+
+  .section-title {
+    @apply text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-6;
+  }
+
+  .feature-title {
+    @apply text-xl font-bold text-primary mb-3;
+  }
+
+  /* Gradients */
+  .bg-hero-gradient {
+    background: var(--gradient-hero);
+  }
+
+  .bg-card-gradient {
+    background: var(--gradient-card);
+  }
+
+  .bg-accent-gradient {
+    background: var(--gradient-accent);
+  }
+
+  .bg-subtle-gradient {
+    background: var(--gradient-subtle);
+  }
+
+  .bg-romantic-gradient {
+    background: var(--gradient-romantic);
+  }
+}
+
+.hero-title {
+  @apply text-5xl sm:text-6xl lg:text-7xl font-bold bg-gradient-to-l from-primary via-accent to-secondary bg-clip-text text-transparent leading-tight;
+}
+
+.btn-hero {
+  @apply bg-gradient-to-r from-primary to-primary-dark text-primary-foreground font-bold px-10 py-5 rounded-full shadow-xl hover:shadow-2xl hover:shadow-primary/50 transform hover:scale-105 transition-all duration-300;
+}
+
+.btn-outline {
+  @apply border-2 border-secondary text-secondary font-bold px-8 py-4 rounded-xl hover:bg-secondary hover:text-secondary-foreground shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300;
+}
+
+.section-title {
+  @apply text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-6;
+}
