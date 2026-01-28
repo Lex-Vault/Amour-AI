@@ -111,12 +111,12 @@ export const verifyPayment = async (req, res) => {
 
     // Atomic update: only apply if order id not already present in creditedOrders
     const updatedUser = await User.findOneAndUpdate(
-      { _id: userId, creditedOrders: { $ne: razorpay_order_id } }, // condition
+      { _id: userId }, // condition
       {
         $inc: { credits: creditsToAdd }, // increment credits
       },
-      { new: true } 
-    ).lean();
+      { new: true }
+    ).lean(); 
 
     if (!updatedUser) {
       // The user was found but the order id already exists (or user not found)

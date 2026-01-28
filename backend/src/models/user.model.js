@@ -6,7 +6,7 @@ const UserSchema = new Schema({
   phone: { type: String, required: true, unique: true },
   phoneVerified: { type: Boolean, default: false },
   createdAt: { type: Date, default: () => new Date() },
-  refferredBy: { type: String, default: null },
+  referredBy: { type: String, default: null },
   adminAccess: { type: Boolean, default: false },
   lastLoginAt: { type: Date },
   credits: { type: Number, default: 4 },

@@ -1,7 +1,5 @@
 import express from "express";
-import User from "../models/user.model.js";
-
-import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
 import {
   getMeController,
   loginController,
@@ -9,33 +7,27 @@ import {
   sendOtpController,
   signupController,
 } from "../controllers/auth.controller.js";
+import { protectRoute } from "../middleware/protectRoutes.js";
 
 const router = express.Router();
 
-export const checkAuth = async (req, res, next) => {
-  try {
-    const token = req.cookies?.amour;
-    if (!token)
-      return res.status(401).json({ ok: false, error: "no_auth_token" });
+// Rate limiter for OTP endpoint to prevent abuse
+const otpLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 3, // 3 requests per minute
+  message: { ok: false, error: "too_many_otp_requests" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(payload.sub).select("-password");
-    if (!user)
-      return res.status(401).json({ ok: false, error: "invalid_token" });
-    req.user = user;
-    next();
-  } catch (err) {
-    return res.status(401).json({ ok: false, error: "unauthorized" });
-  }
-};
 router.post("/signup", signupController);
 
 router.post("/login", loginController);
 
-router.post("/send-otp", sendOtpController);
+router.post("/send-otp", otpLimiter, sendOtpController);
 
 router.post("/logout", logoutController);
 
-router.get("/me", checkAuth, getMeController);
+router.get("/me", protectRoute, getMeController);
 
 export default router;

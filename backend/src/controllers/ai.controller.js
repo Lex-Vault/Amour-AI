@@ -1,7 +1,8 @@
 import fs from "fs/promises";
 import axios from "axios";
 import mongoose from "mongoose";
-import User from "../models/user.model.js"; // keep your model path
+import User from "../models/user.model.js"; 
+import GenerationHistory from "../models/generationHistory.model.js";
 
 // -----------------------------
 // System prompts
@@ -531,7 +532,7 @@ export const analyzeProfileImage = async (req, res, next) => {
     }
 
     let dataUrl;
-    if (req.user.credits < 4) {
+    if (req.user.credits < 6) {
       return res.status(402).json({ ok: false, error: "insufficient_credits" });
     }
 
@@ -613,6 +614,15 @@ export const analyzeProfileImage = async (req, res, next) => {
     if (content.endsWith("```")) content = content.replace(/```\s*$/, "");
 
     const parsed = JSON.parse(content);
+    
+    // Save history
+    await GenerationHistory.create({
+      userId: req.user._id,
+      type: "profile_analysis",
+      input: { source: "image" }, // Don't store full base64
+      output: parsed,
+    });
+
     return res.json({ ok: true, result: parsed });
   } catch (err) {
     // normalize axios error to useful message if possible
@@ -666,6 +676,14 @@ export const generateBios = async (req, res, next) => {
         return res.status(404).json({ ok: false, error: "user_not_found" });
       return next(err);
     }
+    // Save history
+    await GenerationHistory.create({
+      userId: req.user._id,
+      type: "bio",
+      input: { hobbies, vibe, job },
+      output: result,
+    });
+
     return res.json({ ok: true, result });
   } catch (err) {
     next(err);
@@ -706,6 +724,14 @@ export const analyzeChat = async (req, res, next) => {
         return res.status(404).json({ ok: false, error: "user_not_found" });
       return next(err);
     }
+    // Save history
+    await GenerationHistory.create({
+      userId: req.user._id,
+      type: "chat_analysis",
+      input: { chatText },
+      output: result,
+    });
+
     return res.json({ ok: true, result });
   } catch (err) {
     next(err);
@@ -804,8 +830,18 @@ export const analyzeChatImage = async (req, res, next) => {
     if (content.endsWith("```")) content = content.replace(/```\s*$/, "");
 
     const parsed = JSON.parse(content);
+
+    // Save history
+    await GenerationHistory.create({
+      userId: req.user._id,
+      type: "chat_image_analysis",
+      input: { source: "image" },
+      output: parsed,
+    });
+
     return res.json({ ok: true, result: parsed });
   } catch (err) {
+    // normalize axios error to useful message if possible
     if (err.response) {
       const { status, statusText, data } = err.response;
       return next(
@@ -817,3 +853,26 @@ export const analyzeChatImage = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getHistory = async (req, res, next) => {
+  try {
+    const { type, limit = 20, cursor } = req.query;
+    const query = { userId: req.user._id };
+    
+    if (type) {
+      query.type = type;
+    }
+
+    // Cursor-based pagination or simple sorting
+    // We'll use simple sort by createdAt desc for now as requested "filtering/ordering"
+    
+    const history = await GenerationHistory.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    return res.json({ ok: true, history });
+  } catch (err) {
+    next(err);
+  }
+};
+

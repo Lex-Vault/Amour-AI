@@ -2,7 +2,18 @@ import { sendOtp, verifyOtp } from "../services/twilio.service.js";
 import { normalizeAndValidatePhone } from "../utils/phoneNormalize.js";
 import User from "../models/user.model.js";
 import { generateToken } from "../utils/generateToken.js";
+import { getCookieOptions, COOKIE_NAME } from "../utils/cookieConfig.js";
 import influencerModel from "../models/influencer.model.js";
+
+// Simple sanitization: strip HTML tags and limit length
+const sanitizeString = (str, maxLength = 50) => {
+  if (typeof str !== "string") return "";
+  return str
+    .replace(/<[^>]*>/g, "") // Remove HTML tags
+    .replace(/[<>"'&]/g, "") // Remove potentially dangerous characters
+    .trim()
+    .slice(0, maxLength);
+};
 
 export const signupController = async (req, res, next) => {
   try {
@@ -25,7 +36,7 @@ export const signupController = async (req, res, next) => {
     }
     const now = new Date();
     let user = await User.create({
-      username,
+      username: sanitizeString(username, 50),
       phone: normalized,
       phoneVerified: true,
       createdAt: now,
@@ -41,15 +52,9 @@ export const signupController = async (req, res, next) => {
       }
     }
 
-    const token = generateToken(user, res);
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // true only in prod
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 90 * 24 * 60 * 60 * 1000,
-      path: "/",
-    };
-    res.cookie("amour", token, cookieOptions);
+    const token = generateToken(user);
+    const cookieOptions = getCookieOptions();
+    res.cookie(COOKIE_NAME, token, cookieOptions);
 
     return res.json({
       ok: true,
@@ -84,15 +89,13 @@ export const loginController = async (req, res, next) => {
       return res.status(400).json({ ok: false, error: "invalid_otp" });
     }
 
-    const token = generateToken(user, res);
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // true only in prod
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 90 * 24 * 60 * 60 * 1000,
-      path: "/",
-    };
-    res.cookie("amour", token, cookieOptions);
+    // Update last login time
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const token = generateToken(user);
+    const cookieOptions = getCookieOptions();
+    res.cookie(COOKIE_NAME, token, cookieOptions);
 
     return res.status(200).json({
       ok: true,
@@ -107,6 +110,7 @@ export const loginController = async (req, res, next) => {
     next(err);
   }
 };
+
 
 export const sendOtpController = async (req, res, next) => {
   try {
@@ -140,7 +144,14 @@ export const sendOtpController = async (req, res, next) => {
 };
 
 export const logoutController = (_, res) => {
-  res.clearCookie("amour", { path: "/" });
+  // Use same cookie options (except maxAge) for proper clearing across browsers
+  const cookieOptions = getCookieOptions();
+  res.clearCookie(COOKIE_NAME, {
+    path: cookieOptions.path,
+    secure: cookieOptions.secure,
+    sameSite: cookieOptions.sameSite,
+    httpOnly: cookieOptions.httpOnly,
+  });
   res.json({ ok: true, message: "logged out" });
 };
 
