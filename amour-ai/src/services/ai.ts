@@ -18,7 +18,7 @@ export async function analyzeDp(base64Image: string) {
 
   try {
     const resp = await axios.post(
-      "api/ai/analyze-image",
+      "/api/ai/analyze-image",
       { base64Image },
       {
         headers: {
@@ -107,7 +107,7 @@ export async function analyzeChatText(chatText: string) {
   }
   
   try {
-    const resp = await axios.post("api/ai/analyze-chat", { chatText });
+    const resp = await axios.post("/api/ai/analyze-chat", { chatText });
     const json = resp.data;
     
     if (!json?.ok) {
@@ -134,7 +134,7 @@ export async function analyzeChatImage(file: File) {
   fd.append("image", file);
   
   try {
-    const resp = await axios.post("api/ai/analyze-chat-image", fd, {
+    const resp = await axios.post("/api/ai/analyze-chat-image", fd, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     const json = resp.data;
@@ -152,5 +152,42 @@ export async function analyzeChatImage(file: File) {
       );
     }
     throw new Error(`analyzeChatImage: ${e.message}`);
+  }
+}
+
+// Get generation history
+export type HistoryType = "bio" | "profile_analysis" | "chat_analysis" | "chat_image_analysis";
+
+export interface HistoryItem {
+  _id: string;
+  userId: string;
+  type: HistoryType;
+  input: Record<string, unknown>;
+  output: Record<string, unknown>;
+  createdAt: string;
+}
+
+export async function getHistory(type?: HistoryType, limit: number = 20): Promise<HistoryItem[]> {
+  try {
+    const params = new URLSearchParams();
+    if (type) params.append("type", type);
+    params.append("limit", String(limit));
+    
+    const resp = await axios.get(`/api/ai/history?${params.toString()}`);
+    const json = resp.data;
+
+    if (!json?.ok) {
+      throw new Error(json?.error || "getHistory: unknown error");
+    }
+
+    return json.history;
+  } catch (e) {
+    if (e.response && e.response.data) {
+      throw new Error(
+        e.response.data.error ||
+          `getHistory: ${e.response.status} ${e.response.statusText}`
+      );
+    }
+    throw new Error(`getHistory: ${e.message}`);
   }
 }

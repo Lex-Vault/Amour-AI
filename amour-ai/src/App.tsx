@@ -14,6 +14,7 @@ import SignUp from "./pages/SignUp";
 import axios from "axios";
 import RazorpayPaymentPage from "./pages/RazorPayPaymentPage";
 import AdminInfluencers from "./pages/AdminInfluencers";
+import History from "./pages/History";
 import { AuthProvider } from "./context/AuthContext";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ function App() {
               <Route path="/tools/bio-generator" element={<BioGenerator />} />
               <Route path="/tools/dp-analyzer" element={<DpAnalyzer />} />
               <Route path="/admin" element={<AdminInfluencers />} />
+              <Route path="/history" element={<History />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -5,6 +5,7 @@ import {
   Lock,
   Sparkles,
   Heart,
+  Clock,
 } from "lucide-react";
 import heroBg from "@/assets/hero-bg-romantic1.jpg";
 import { useNavigate } from "react-router-dom";
@@ -47,11 +48,19 @@ const HeroSection = () => {
           </span>
         </p>
         {user ? (
-          <div>
-            <p className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 text-lg md:text-2xl text-orange-400 max-w-3xl mx-auto leading-relaxed font-medium mb-12">
+          <div className="flex flex-col items-center gap-6">
+            <p className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 text-lg md:text-2xl text-orange-400 max-w-3xl mx-auto leading-relaxed font-medium">
               Welcome back,{" "}
               <span className="font-semibold">{user.username}</span>!
             </p>
+            <Button
+              onClick={() => router("/history")}
+              className="group relative h-12 px-8 text-base font-semibold rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20 hover:border-orange-500/50 transition-all duration-300"
+            >
+              <Clock className="w-5 h-5 mr-2" />
+              Check past creations
+              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+            </Button>
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 flex flex-col sm:flex-row items-center justify-center gap-5 w-full sm:w-auto mb-20">

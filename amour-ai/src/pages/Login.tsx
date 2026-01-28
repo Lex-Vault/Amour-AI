@@ -25,42 +25,23 @@ const Login = () => {
 
   // Manage countdown interval
   useEffect(() => {
+    // Only start interval if we have time remaining
     if (secondsLeft <= 0) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
       return;
     }
 
     timerRef.current = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-          return 0;
-        }
-        return s - 1;
-      });
+      setSecondsLeft((prev) => prev - 1);
     }, 1000);
 
+    // Cleanup on unmount or when secondsLeft changes
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
     };
-  }, [secondsLeft]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, []);
+  }, [secondsLeft > 0]); // Only re-run when transitioning to/from 0
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
