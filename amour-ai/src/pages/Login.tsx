@@ -56,20 +56,32 @@ const Login = () => {
 
     setSendingOtp(true);
     try {
-      await axios.post("/api/auth/send-otp", { phone });
+      await axios.post("/api/auth/send-otp", { phone, intent: "login" });
       toast({
         title: "OTP Sent",
         description: "An OTP has been sent to your phone.",
-        variant: "success",
+        variant: "default",
       });
       setOtpSent(true);
       setSecondsLeft(60); // start 60s timeout after successful send
     } catch (err) {
-      toast({
-        title: "Error",
-        description: err.response?.data?.error || "Failed to send OTP",
-        variant: "destructive",
-      });
+      const errorCode = err.response?.data?.error;
+      
+      if (errorCode === "user_not_found") {
+        toast({
+          title: "Account Not Found",
+          description: "No account with this phone. Redirecting to signup...",
+          variant: "destructive",
+        });
+        // Redirect to signup after a short delay
+        setTimeout(() => navigate("/signup"), 1500);
+      } else {
+        toast({
+          title: "Error",
+          description: err.response?.data?.message || err.response?.data?.error || "Failed to send OTP",
+          variant: "destructive",
+        });
+      }
     } finally {
       setSendingOtp(false);
     }

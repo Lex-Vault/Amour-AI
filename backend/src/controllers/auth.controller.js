@@ -114,7 +114,7 @@ export const loginController = async (req, res, next) => {
 
 export const sendOtpController = async (req, res, next) => {
   try {
-    const { phone } = req.body;
+    const { phone, intent } = req.body;
 
     if (!phone)
       return res.status(400).json({ ok: false, error: "phone_required" });
@@ -122,6 +122,25 @@ export const sendOtpController = async (req, res, next) => {
     const normalized = normalizeAndValidatePhone(phone);
     if (!normalized) {
       return res.status(400).json({ ok: false, error: "invalid_phone" });
+    }
+
+    // Check user existence based on intent to prevent wasted OTPs
+    const existingUser = await User.findOne({ phone: normalized });
+
+    if (intent === "signup" && existingUser) {
+      return res.status(400).json({
+        ok: false,
+        error: "user_already_exists",
+        message: "This phone number is already registered. Please login instead.",
+      });
+    }
+
+    if (intent === "login" && !existingUser) {
+      return res.status(404).json({
+        ok: false,
+        error: "user_not_found",
+        message: "No account found with this phone number. Please signup first.",
+      });
     }
 
     try {

@@ -79,24 +79,34 @@ const Signup = () => {
 
     setSendingOtp(true);
     try {
-      // Uncomment / replace with real request:
-      await axios.post("/api/auth/send-otp", { phone });
+      await axios.post("/api/auth/send-otp", { phone, intent: "signup" });
 
-      // Simulated success response (or remove when real API is used)
       toast({
         title: "OTP Sent",
         description: `An OTP has been sent to ${phone}`,
-        variant: "success",
+        variant: "default",
       });
 
       setOtpSent(true);
       setSecondsLeft(60); // start 60s cooldown after successful send
     } catch (err) {
-      toast({
-        title: "Error",
-        description: err.response?.data?.error || "Failed to send OTP",
-        variant: "destructive",
-      });
+      const errorCode = err.response?.data?.error;
+      
+      if (errorCode === "user_already_exists") {
+        toast({
+          title: "Account Already Exists",
+          description: "This phone is already registered. Redirecting to login...",
+          variant: "destructive",
+        });
+        // Redirect to login after a short delay
+        setTimeout(() => navigate("/login"), 1500);
+      } else {
+        toast({
+          title: "Error",
+          description: err.response?.data?.message || err.response?.data?.error || "Failed to send OTP",
+          variant: "destructive",
+        });
+      }
     } finally {
       setSendingOtp(false);
     }
