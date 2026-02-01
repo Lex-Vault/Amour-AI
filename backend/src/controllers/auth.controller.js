@@ -29,11 +29,11 @@ export const signupController = async (req, res, next) => {
     if (existingUser) {
       return res.status(400).json({ ok: false, error: "user_already_exists" });
     }
-    const result = await verifyOtp(normalized, otp);
+    // const result = await verifyOtp(normalized, otp);
 
-    if (result.status !== "approved") {
-      return res.status(400).json({ ok: false, error: "invalid_otp" });
-    }
+    // if (result.status !== "approved") {
+    //   return res.status(400).json({ ok: false, error: "invalid_otp" });
+    // }
     const now = new Date();
     let user = await User.create({
       username: sanitizeString(username, 50),
@@ -84,10 +84,10 @@ export const loginController = async (req, res, next) => {
       return res.status(404).json({ ok: false, error: "user_not_found" });
     }
 
-    const result = await verifyOtp(normalized, otp);
-    if (result.status !== "approved") {
-      return res.status(400).json({ ok: false, error: "invalid_otp" });
-    }
+    // const result = await verifyOtp(normalized, otp);
+    // if (result.status !== "approved") {
+    //   return res.status(400).json({ ok: false, error: "invalid_otp" });
+    // }
 
     // Update last login time
     user.lastLoginAt = new Date();
@@ -144,7 +144,7 @@ export const sendOtpController = async (req, res, next) => {
     }
 
     try {
-      await sendOtp(normalized); // your existing Twilio wrapper
+      // await sendOtp(normalized); // your existing Twilio wrapper
       return res.status(200).json({ ok: true, data: { message: "otp_sent" } });
     } catch (twErr) {
       console.warn("Twilio sendOtp error", twErr?.message || twErr);

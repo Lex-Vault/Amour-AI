@@ -16,7 +16,7 @@ interface AuthContextType {
   loading: boolean;
   loginApp: (data: { phone: string; otp: string }) => Promise<void>;
   logOutApp: () => Promise<void>;
-  fetchUser: () => Promise<void>;
+  fetchUser: () => Promise<User | null>;
   signUpApp: (data: { username: string; phone: string; otp: string; ref?: string }) => Promise<void>;
 }
 
@@ -32,12 +32,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       const res = await axios.get("/api/auth/me");
       if (res.status === 200 && res.data?.ok) {
-        setUser(res.data.data);
+        const userData = res.data.data;
+        setUser(userData);
+        return userData;
       } else {
         setUser(null);
+        return null;
       }
     } catch (err) {
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -54,15 +58,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (res.status === 200 && res.data?.ok) {
         setUser(res.data.data);
-        toast({
-          title: "Success",
-          description: "Signup successful!",
-          variant: "default",
-        });
-        // Use setTimeout to ensure state is updated before redirect
-        setTimeout(() => {
+        
+        // Verify session persistence
+        const verifiedUser = await fetchUser();
+        
+        if (verifiedUser) {
+          toast({
+            title: "Success",
+            description: "Signup successful!",
+            variant: "default",
+          });
           window.location.href = "/";
-        }, 100);
+        } else {
+          setUser(null);
+          toast({
+            title: "Browser Blocked Session",
+            description: "Signup succeeded, but your browser blocked the session cookie. Please enable cookies or try Chrome/Edge.",
+            variant: "destructive",
+            duration: 10000,
+          });
+        }
       } else {
         toast({
           title: "Error",
@@ -88,16 +103,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (res.data?.ok) {
+        // Optimistically set user
         setUser(res.data.data);
-        toast({
-          title: "Success",
-          description: "Login successful!",
-          variant: "default",
-        });
-        // Use setTimeout to ensure state is updated before redirect
-        setTimeout(() => {
+
+        // Verify session persistence
+        const verifiedUser = await fetchUser();
+
+        if (verifiedUser) {
+          toast({
+            title: "Success",
+            description: "Login successful!",
+            variant: "default",
+          });
           window.location.href = "/";
-        }, 100);
+        } else {
+           setUser(null);
+           toast({
+             title: "Browser Blocked Session",
+             description: "Login succeeded, but your browser blocked the session cookie. Please enable cookies or try Chrome/Edge.",
+             variant: "destructive",
+             duration: 10000,
+           });
+        }
       }
     } catch (err: any) {
       toast({

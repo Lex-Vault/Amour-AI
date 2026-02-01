@@ -19,34 +19,57 @@
 export const getCookieOptions = () => {
   const isProduction = process.env.NODE_ENV === "production";
   
-  // Check if we're using same-origin or cross-origin setup
-  // If CLIENT_URL and backend URL have the same domain, use "lax"
-  // Otherwise use "none" for cross-origin
   const clientUrl = process.env.CLIENT_URL || "";
   const backendUrl = process.env.BACKEND_URL || "";
   
-  // Try to detect if same origin (simplistic check)
-  let isSameOrigin = false;
+  // Default to "none" for cross-origin strictness in production
+  // But prefer "lax" if we can determine we are on the same "site" (eTLD+1)
+  let sameSite = "none";
+  let isSameSite = false;
+
   try {
     if (clientUrl && backendUrl) {
       const clientHost = new URL(clientUrl).hostname;
       const backendHost = new URL(backendUrl).hostname;
-      isSameOrigin = clientHost === backendHost;
+
+      if (clientHost === backendHost) {
+        isSameSite = true;
+      } else {
+        // Intelligent check for subdomains (e.g., app.amour.ai and api.amour.ai)
+        // If they share the same root domain, we should use "lax" for better Safari support
+        const clientParts = clientHost.split('.');
+        const backendParts = backendHost.split('.');
+        
+        // Very basic heuristic: if last 2 parts match, assume same root domain.
+        // This covers standard domains (amour.ai) and localhost.
+        // It might be overly aggressive for SLDs like .co.uk, but "Lax" is a safe fallback 
+        // compared to "None" which is blocked by Safari ITP.
+        if (clientParts.length >= 2 && backendParts.length >= 2) {
+          const clientRoot = clientParts.slice(-2).join('.');
+          const backendRoot = backendParts.slice(-2).join('.');
+          if (clientRoot === backendRoot) {
+            isSameSite = true;
+          }
+        }
+      }
     }
-  } catch {
-    // If parsing fails, assume cross-origin for safety
-    isSameOrigin = false;
+  } catch (err) {
+    // Fallback to cross-origin assumption
+    isSameSite = false;
+  }
+
+  // If detected as same-site (same domain or subdomain sharing root), use "lax"
+  // "lax" is much more reliable on Safari than "none"
+  if (isSameSite) {
+    sameSite = "lax";
   }
 
   return {
     httpOnly: true,
     secure: isProduction, // HTTPS only in production
-    // Use "lax" for same-origin (better Safari support), "none" for cross-origin
-    sameSite: isProduction ? (isSameOrigin ? "lax" : "none") : "lax",
+    sameSite: isProduction ? sameSite : "lax", 
     maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
     path: "/",
-    // Optionally set domain for subdomain sharing
-    // domain: isProduction ? ".yourdomain.com" : undefined,
   };
 };
 
