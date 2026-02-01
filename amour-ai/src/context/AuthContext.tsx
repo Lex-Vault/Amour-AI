@@ -2,6 +2,8 @@ import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
+const TOKEN_KEY = "amour_token";
+
 interface User {
   id: string;
   username: string;
@@ -22,9 +24,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Helper to manage token
+const setSession = (token: string | null) => {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+    axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+    delete axios.defaults.headers.common["Authorization"];
+  }
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Start with loading true
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchUser = useCallback(async () => {
@@ -41,14 +54,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (err) {
       setUser(null);
+      // Don't clear session here automatically on network error, 
+      // but if 401 it might be good. For now, rely on user to logout or retry.
       return null;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Check auth status on initial mount
+  // Initialize session from localStorage on mount
   useEffect(() => {
+    const storedToken = localStorage.getItem(TOKEN_KEY);
+    if (storedToken) {
+      setSession(storedToken);
+    }
     fetchUser();
   }, [fetchUser]);
 
@@ -57,9 +76,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const res = await axios.post("/api/auth/signup", data);
 
       if (res.status === 200 && res.data?.ok) {
-        setUser(res.data.data);
+        const { token, ...userData } = res.data.data;
         
-        // Verify session persistence
+        // Save token to localStorage and axios headers
+        if (token) {
+          setSession(token);
+        }
+
+        setUser(userData);
+        
+        // Verify session (now checking header-based auth too)
         const verifiedUser = await fetchUser();
         
         if (verifiedUser) {
@@ -70,12 +96,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           });
           window.location.href = "/";
         } else {
+          // This should almost never happen with Hybrid Auth
           setUser(null);
           toast({
-            title: "Browser Blocked Session",
-            description: "Signup succeeded, but your browser blocked the session cookie. Please enable cookies or try Chrome/Edge.",
+            title: "Session Error",
+            description: "Could not verify session. Please try logging in again.",
             variant: "destructive",
-            duration: 10000,
           });
         }
       } else {
@@ -103,8 +129,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (res.data?.ok) {
-        // Optimistically set user
-        setUser(res.data.data);
+        const { token, ...userData } = res.data.data;
+
+         // Save token to localStorage and axios headers
+         if (token) {
+          setSession(token);
+        }
+
+        setUser(userData);
 
         // Verify session persistence
         const verifiedUser = await fetchUser();
@@ -117,12 +149,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           });
           window.location.href = "/";
         } else {
+           // With token in localStorage, this is very unlikely unless API failure
            setUser(null);
            toast({
-             title: "Browser Blocked Session",
-             description: "Login succeeded, but your browser blocked the session cookie. Please enable cookies or try Chrome/Edge.",
+             title: "Session Error",
+             description: "Login succeeded but session verification failed. Please try again.",
              variant: "destructive",
-             duration: 10000,
            });
         }
       }
@@ -142,6 +174,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err) {
       // Ignore logout errors
     }
+    setSession(null);
     setUser(null);
     window.location.href = "/login";
   };

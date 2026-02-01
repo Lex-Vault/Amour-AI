@@ -63,6 +63,7 @@ export const signupController = async (req, res, next) => {
         username: user.username,
         phone: user.phone,
         phoneVerified: user.phoneVerified,
+        token: token,
       },
     });
   } catch (err) {
@@ -104,6 +105,7 @@ export const loginController = async (req, res, next) => {
         username: user.username,
         phone: user.phone,
         phoneVerified: user.phoneVerified,
+        token: token,
       },
     });
   } catch (err) {

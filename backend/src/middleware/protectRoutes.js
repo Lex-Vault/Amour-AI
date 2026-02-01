@@ -3,7 +3,13 @@ import User from "../models/user.model.js";
 
 export const protectRoute = async (req, res, next) => {
   try {
-    const token = req.cookies["amour"];
+    let token = req.cookies && req.cookies["amour"];
+
+    if (!token && req.headers.authorization) {
+      if (req.headers.authorization.startsWith("Bearer ")) {
+        token = req.headers.authorization.split(" ")[1];
+      }
+    }
 
     if (!token) {
       return res.status(401).json({ ok: false, error: "no_auth_token" });
