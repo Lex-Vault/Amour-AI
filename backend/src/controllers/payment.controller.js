@@ -7,12 +7,10 @@ import {
 import User from "../models/user.model.js";
 
 const PRICING = {
-  49: 12,
-  149: 35,
-  299: 70,
-  199: 50,
-  499: 160,
-  999: 350,
+  99: 10,
+  249: 30,
+  449: 55,
+  699: 90,
 };
 
 export const createOrder = async (req, res) => {
@@ -111,23 +109,31 @@ export const verifyPayment = async (req, res) => {
 
     // Atomic update: only apply if order id not already present in creditedOrders
     const updatedUser = await User.findOneAndUpdate(
-      { _id: userId }, // condition
+      { _id: userId, creditedOrders: { $ne: razorpay_order_id } },
       {
-        $inc: { credits: creditsToAdd }, // increment credits
+        $inc: { credits: creditsToAdd },
+        $addToSet: { creditedOrders: razorpay_order_id },
       },
       { new: true }
     ).lean(); 
 
     if (!updatedUser) {
-      // The user was found but the order id already exists (or user not found)
+      // The order was already applied or user not found
       const existing = await User.findById(userId).lean();
-      const currentCredits = existing?.credits ?? null;
+      if (!existing)
+        return res.json({
+          success: true,
+          verified: true,
+          record,
+          message: "user_not_found",
+          credits: null,
+        });
       return res.json({
         success: true,
         verified: true,
         record,
-        message: "order_already_applied_or_user_not_found",
-        credits: currentCredits,
+        message: "order_already_applied",
+        credits: existing.credits,
       });
     }
 

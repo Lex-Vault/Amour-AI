@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Plus, X, DollarSign, Users, TrendingUp } from "lucide-react";
+import { Search, Plus, X, DollarSign, Users, TrendingUp, FileText, Activity } from "lucide-react";
 import axios from "axios";
 
 import { useToast } from "@/hooks/use-toast";
@@ -18,11 +18,14 @@ export default function AdminInfluencers() {
 
   const [newContact, setNewContact] = useState("");
   const { toast } = useToast();
-  const { user, fetchUser } = useAuth();
+  const { user } = useAuth();
 
-  useEffect(() => {
-    fetchUser();
-  }, []);
+  // Query Logs state
+  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [logsTotals, setLogsTotals] = useState({ costINR: 0, tokens: 0, requests: 0 });
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsFilter, setLogsFilter] = useState("all");
 
 
   //Function to add text to clipboard
@@ -58,6 +61,27 @@ export default function AdminInfluencers() {
   useEffect(() => {
     fetchList();
   }, [page]);
+
+  // Fetch query logs
+  const fetchLogs = async (filterType = logsFilter) => {
+    setLogsLoading(true);
+    try {
+      const res = await axios.get(`/api/admin/query-logs`, {
+        params: { page: 1, limit: 200, type: filterType },
+      });
+      setLogs(res.data.data.items);
+      setLogsTotals(res.data.data.totals);
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Error",
+        description: "Failed to load query logs",
+        variant: "destructive",
+      });
+    } finally {
+      setLogsLoading(false);
+    }
+  };
 
   const openPay = (infl) => {
     setSelected(infl);
@@ -262,6 +286,16 @@ const totalEarnings = list.reduce((sum, i) => sum + Number(i.totalEarning || 0),
             <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-500 skew-x-12 -ml-4 w-1/2 h-full blur-md" />
             <Plus className="w-5 h-5 relative" />
             <span className="relative">Add Influencer</span>
+          </button>
+
+          {/* Query Logs Button */}
+          <button
+            onClick={() => { setShowLogs(true); fetchLogs(); }}
+            className="group relative h-12 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] transition-all border border-white/10 overflow-hidden flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-500 skew-x-12 -ml-4 w-1/2 h-full blur-md" />
+            <FileText className="w-5 h-5 relative" />
+            <span className="relative">Show Query Logs</span>
           </button>
         </div>
 
@@ -495,6 +529,144 @@ const totalEarnings = list.reduce((sum, i) => sum + Number(i.totalEarning || 0),
                     Confirm Payment
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Query Logs Modal */}
+        {showLogs && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 lg:px-10 py-5 border-b border-white/10">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <Activity className="w-6 h-6 text-blue-400" />
+                  Query Logs
+                </h2>
+                <p className="text-gray-400 text-sm mt-1">Generation request history with token usage and costs</p>
+              </div>
+              <button
+                onClick={() => setShowLogs(false)}
+                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Totals Cards */}
+            <div className="px-6 lg:px-10 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-gray-400 text-xs font-medium mb-1">Total Cost</p>
+                  <p className="text-2xl font-bold text-red-400">₹{logsTotals.costINR.toFixed(4)}</p>
+                </div>
+                <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-gray-400 text-xs font-medium mb-1">Total Tokens</p>
+                  <p className="text-2xl font-bold text-blue-400">{logsTotals.tokens.toLocaleString()}</p>
+                </div>
+                <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-gray-400 text-xs font-medium mb-1">Total Requests</p>
+                  <p className="text-2xl font-bold text-green-400">{logsTotals.requests}</p>
+                </div>
+              </div>
+
+              {/* Filter */}
+              <div className="flex gap-2 flex-wrap">
+                {["all", "bio", "chat_analysis", "profile_analysis", "chat_image_analysis"].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => { setLogsFilter(t); fetchLogs(t); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      logsFilter === t
+                        ? "bg-blue-500/30 border-blue-500 text-blue-300"
+                        : "bg-white/5 border-white/10 text-gray-400 hover:border-white/20"
+                    }`}
+                  >
+                    {t === "all" ? "All" : t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Logs Table */}
+            <div className="flex-1 overflow-auto px-6 lg:px-10 pb-6">
+              <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/5">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-300">Time</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-300">User</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-300">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-300">Query</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-300">Model</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-300">Prompt</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-300">Completion</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-300">Total Tokens</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-300">Cost (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logsLoading ? (
+                      <tr>
+                        <td colSpan={9} className="px-4 py-8 text-center text-gray-400">Loading...</td>
+                      </tr>
+                    ) : logs.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="px-4 py-8 text-center text-gray-400">No logs found</td>
+                      </tr>
+                    ) : (
+                      logs.map((log) => {
+                        const queryPreview = log.input?.chatText
+                          ? log.input.chatText.substring(0, 80) + (log.input.chatText.length > 80 ? "..." : "")
+                          : log.input?.hobbies
+                          ? `${log.input.hobbies} / ${log.input.vibe} / ${log.input.job}`
+                          : log.input?.source === "image"
+                          ? "[Image Upload]"
+                          : "—";
+                        return (
+                          <tr key={log._id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                              {new Date(log.createdAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="text-sm text-white font-medium">{log.userId?.username || "Unknown"}</p>
+                              <p className="text-xs text-gray-500">{log.userId?.phone || ""}</p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                log.type === "bio" ? "bg-green-500/20 border-green-500/30 text-green-300" :
+                                log.type === "chat_analysis" ? "bg-blue-500/20 border-blue-500/30 text-blue-300" :
+                                log.type === "profile_analysis" ? "bg-purple-500/20 border-purple-500/30 text-purple-300" :
+                                "bg-orange-500/20 border-orange-500/30 text-orange-300"
+                              }`}>
+                                {log.type.replace(/_/g, " ")}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-300 max-w-[200px] truncate" title={queryPreview}>
+                              {queryPreview}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-400">
+                              {log.model ? log.model.split("/").pop() : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-right text-xs text-gray-400">
+                              {log.tokenUsage?.promptTokens?.toLocaleString() || 0}
+                            </td>
+                            <td className="px-4 py-3 text-right text-xs text-gray-400">
+                              {log.tokenUsage?.completionTokens?.toLocaleString() || 0}
+                            </td>
+                            <td className="px-4 py-3 text-right text-xs text-white font-medium">
+                              {log.tokenUsage?.totalTokens?.toLocaleString() || 0}
+                            </td>
+                            <td className="px-4 py-3 text-right text-xs font-semibold text-red-400">
+                              ₹{(log.costINR || 0).toFixed(4)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

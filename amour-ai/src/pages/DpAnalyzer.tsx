@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,9 +57,6 @@ const DpAnalyzer = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
 
-  useEffect(() => {
-    fetchUser();
-  }, []);
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {

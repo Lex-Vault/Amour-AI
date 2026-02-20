@@ -3,6 +3,52 @@ import axios from "axios";
 import mongoose from "mongoose";
 import User from "../models/user.model.js"; 
 import GenerationHistory from "../models/generationHistory.model.js";
+import AiUsageStats from "../models/aiUsageStats.model.js";
+
+// Groq pricing per 1M tokens (USD) — update if Groq changes rates
+const GROQ_PRICING = {
+  "llama-3.3-70b-versatile": { input: 0.59, output: 0.79 },
+  "meta-llama/llama-4-scout-17b-16e-instruct": { input: 0.11, output: 0.34 },
+};
+const USD_TO_INR = 85; // approximate conversion rate
+
+function calculateCostINR(model, usage) {
+  if (!usage) return 0;
+  const rates = GROQ_PRICING[model] || { input: 0.59, output: 0.79 };
+  const inputCostUSD = ((usage.prompt_tokens || 0) / 1_000_000) * rates.input;
+  const outputCostUSD = ((usage.completion_tokens || 0) / 1_000_000) * rates.output;
+  return Number(((inputCostUSD + outputCostUSD) * USD_TO_INR).toFixed(6));
+}
+
+/**
+ * Permanently record aggregate usage stats (survives GenerationHistory TTL).
+ * Increments both the per-type doc and the "_all" global doc.
+ */
+async function recordPermanentStats(type, usage, costINR) {
+  const inc = {
+    totalRequests: 1,
+    totalPromptTokens: usage?.prompt_tokens || 0,
+    totalCompletionTokens: usage?.completion_tokens || 0,
+    totalTokens: usage?.total_tokens || 0,
+    totalCostINR: costINR || 0,
+  };
+  try {
+    await Promise.all([
+      AiUsageStats.findOneAndUpdate(
+        { type },
+        { $inc: inc, $set: { updatedAt: new Date() } },
+        { upsert: true }
+      ),
+      AiUsageStats.findOneAndUpdate(
+        { type: "_all" },
+        { $inc: inc, $set: { updatedAt: new Date() } },
+        { upsert: true }
+      ),
+    ]);
+  } catch (err) {
+    console.error("recordPermanentStats error (non-fatal):", err.message);
+  }
+}
 
 // -----------------------------
 // System prompts
@@ -479,7 +525,7 @@ async function callGroq(prompt, userContent, apiKeyOverride) {
       if (text.startsWith("```json")) text = text.replace(/^```json\s*/, "");
       else if (text.startsWith("```")) text = text.replace(/^```\s*/, "");
       if (text.endsWith("```")) text = text.replace(/```\s*$/, "");
-      return JSON.parse(text);
+      return { result: JSON.parse(text), usage: resp.data?.usage || null, model: resp.data?.model || body.model };
     } catch (err) {
       // If error is retryable, fall through to rotation; otherwise rethrow
       if (!isRetryableGroqError(err)) {
@@ -521,7 +567,7 @@ async function callGroq(prompt, userContent, apiKeyOverride) {
   if (text.startsWith("```json")) text = text.replace(/^```json\s*/, "");
   else if (text.startsWith("```")) text = text.replace(/^```\s*/, "");
   if (text.endsWith("```")) text = text.replace(/```\s*$/, "");
-  return JSON.parse(text);
+  return { result: JSON.parse(text), usage: resp.data?.usage || null, model: resp.data?.model || body.model };
 }
 
 // Route handlers - adapted to use rotation functions
@@ -532,8 +578,16 @@ export const analyzeProfileImage = async (req, res, next) => {
     }
 
     let dataUrl;
-    if (req.user.credits < 6) {
-      return res.status(402).json({ ok: false, error: "insufficient_credits" });
+
+    // Deduct credits BEFORE calling Groq (atomic, prevents race condition)
+    try {
+      await deductCredits(req.user._id, 6);
+    } catch (err) {
+      if (err.message === "insufficient_credits")
+        return res.status(402).json({ ok: false, error: "insufficient_credits" });
+      if (err.message === "not_found")
+        return res.status(404).json({ ok: false, error: "user_not_found" });
+      return next(err);
     }
 
     // JSON body with base64 data URL
@@ -576,6 +630,8 @@ export const analyzeProfileImage = async (req, res, next) => {
         { maxBodyLength: Infinity }
       );
     } catch (err) {
+      // Refund credits on Groq failure
+      await User.findByIdAndUpdate(req.user._id, { $inc: { credits: 6 } });
       if (err.response) {
         const { status, statusText, data } = err.response;
         return next(
@@ -593,18 +649,7 @@ export const analyzeProfileImage = async (req, res, next) => {
         .status(500)
         .json({ ok: false, error: "empty_vision_response" });
 
-    // Deduct credits after successful response
-    try {
-      await deductCredits(req.user._id, 6);
-    } catch (err) {
-      if (err.message === "insufficient_credits")
-        return res
-          .status(402)
-          .json({ ok: false, error: "insufficient_credits" });
-      if (err.message === "not_found")
-        return res.status(404).json({ ok: false, error: "user_not_found" });
-      return next(err);
-    }
+
 
     content = content.trim();
     if (content.startsWith("```json"))
@@ -615,13 +660,28 @@ export const analyzeProfileImage = async (req, res, next) => {
 
     const parsed = JSON.parse(content);
     
-    // Save history
+    const usage = resp.data?.usage || null;
+    const modelUsed = resp.data?.model || "meta-llama/llama-4-scout-17b-16e-instruct";
+
+    const cost = calculateCostINR(modelUsed, usage);
+
+    // Save history (auto-expires after 48h)
     await GenerationHistory.create({
       userId: req.user._id,
       type: "profile_analysis",
-      input: { source: "image" }, // Don't store full base64
+      input: { source: "image" },
       output: parsed,
+      model: modelUsed,
+      tokenUsage: usage ? {
+        promptTokens: usage.prompt_tokens || 0,
+        completionTokens: usage.completion_tokens || 0,
+        totalTokens: usage.total_tokens || 0,
+      } : undefined,
+      costINR: cost,
     });
+
+    // Permanent aggregate stats
+    await recordPermanentStats("profile_analysis", usage, cost);
 
     return res.json({ ok: true, result: parsed });
   } catch (err) {
@@ -646,16 +706,25 @@ export const generateBios = async (req, res, next) => {
         .status(400)
         .json({ ok: false, error: "hobbies_vibe_job_required" });
     }
-    if (req.user.credits < 1) {
-      return res.status(402).json({ ok: false, error: "insufficient_credits" });
+    // Deduct credits BEFORE calling Groq (atomic, prevents race condition)
+    try {
+      await deductCredits(req.user._id, 2);
+    } catch (err) {
+      if (err.message === "insufficient_credits")
+        return res.status(402).json({ ok: false, error: "insufficient_credits" });
+      if (err.message === "not_found")
+        return res.status(404).json({ ok: false, error: "user_not_found" });
+      return next(err);
     }
+
     const userContent = `Hobbies: ${hobbies}\nVibe/Personality: ${vibe}\nJob/Career: ${job}\n\nWrite 3 bios for this person.`;
 
-    let result;
+    let groqResult;
     try {
-      result = await callGroq(BIO_SYSTEM_PROMPT, userContent);
+      groqResult = await callGroq(BIO_SYSTEM_PROMPT, userContent);
     } catch (err) {
-      // Normalize axios error similar to existing behavior
+      // Refund credits on Groq failure
+      await User.findByIdAndUpdate(req.user._id, { $inc: { credits: 2 } });
       if (err.response) {
         const { status, statusText, data } = err.response;
         throw new Error(
@@ -665,24 +734,28 @@ export const generateBios = async (req, res, next) => {
       throw err;
     }
 
-    try {
-      await deductCredits(req.user._id, 2);
-    } catch (err) {
-      if (err.message === "insufficient_credits")
-        return res
-          .status(402)
-          .json({ ok: false, error: "insufficient_credits" });
-      if (err.message === "not_found")
-        return res.status(404).json({ ok: false, error: "user_not_found" });
-      return next(err);
-    }
-    // Save history
+
+    const { result, usage, model: modelUsed } = groqResult;
+
+    const cost = calculateCostINR(modelUsed, usage);
+
+    // Save history (auto-expires after 48h)
     await GenerationHistory.create({
       userId: req.user._id,
       type: "bio",
       input: { hobbies, vibe, job },
       output: result,
+      model: modelUsed,
+      tokenUsage: usage ? {
+        promptTokens: usage.prompt_tokens || 0,
+        completionTokens: usage.completion_tokens || 0,
+        totalTokens: usage.total_tokens || 0,
+      } : undefined,
+      costINR: cost,
     });
+
+    // Permanent aggregate stats
+    await recordPermanentStats("bio", usage, cost);
 
     return res.json({ ok: true, result });
   } catch (err) {
@@ -696,14 +769,23 @@ export const analyzeChat = async (req, res, next) => {
     if (!chatText || typeof chatText !== "string") {
       return res.status(400).json({ ok: false, error: "chatText_required" });
     }
-    if (req.user.credits < 1) {
-      return res.status(402).json({ ok: false, error: "insufficient_credits" });
+    // Deduct credits BEFORE calling Groq (atomic, prevents race condition)
+    try {
+      await deductCredits(req.user._id, 5);
+    } catch (err) {
+      if (err.message === "insufficient_credits")
+        return res.status(402).json({ ok: false, error: "insufficient_credits" });
+      if (err.message === "not_found")
+        return res.status(404).json({ ok: false, error: "user_not_found" });
+      return next(err);
     }
 
-    let result;
+    let groqResult;
     try {
-      result = await callGroq(CHAT_SYSTEM_PROMPT, chatText);
+      groqResult = await callGroq(CHAT_SYSTEM_PROMPT, chatText);
     } catch (err) {
+      // Refund credits on Groq failure
+      await User.findByIdAndUpdate(req.user._id, { $inc: { credits: 5 } });
       if (err.response) {
         const { status, statusText, data } = err.response;
         throw new Error(
@@ -713,24 +795,28 @@ export const analyzeChat = async (req, res, next) => {
       throw err;
     }
 
-    try {
-      await deductCredits(req.user._id, 5);
-    } catch (err) {
-      if (err.message === "insufficient_credits")
-        return res
-          .status(402)
-          .json({ ok: false, error: "insufficient_credits" });
-      if (err.message === "not_found")
-        return res.status(404).json({ ok: false, error: "user_not_found" });
-      return next(err);
-    }
-    // Save history
+
+    const { result, usage, model: modelUsed } = groqResult;
+
+    const cost = calculateCostINR(modelUsed, usage);
+
+    // Save history (auto-expires after 48h)
     await GenerationHistory.create({
       userId: req.user._id,
       type: "chat_analysis",
-      input: { chatText },
+      input: { chatText: chatText.substring(0, 500) }, // truncate for log readability
       output: result,
+      model: modelUsed,
+      tokenUsage: usage ? {
+        promptTokens: usage.prompt_tokens || 0,
+        completionTokens: usage.completion_tokens || 0,
+        totalTokens: usage.total_tokens || 0,
+      } : undefined,
+      costINR: cost,
     });
+
+    // Permanent aggregate stats
+    await recordPermanentStats("chat_analysis", usage, cost);
 
     return res.json({ ok: true, result });
   } catch (err) {
@@ -746,8 +832,15 @@ export const analyzeChatImage = async (req, res, next) => {
 
     let dataUrl;
 
-    if (req.user.credits < 4) {
-      return res.status(402).json({ ok: false, error: "insufficient_credits" });
+    // Deduct credits BEFORE calling Groq (atomic, prevents race condition)
+    try {
+      await deductCredits(req.user._id, 6);
+    } catch (err) {
+      if (err.message === "insufficient_credits")
+        return res.status(402).json({ ok: false, error: "insufficient_credits" });
+      if (err.message === "not_found")
+        return res.status(404).json({ ok: false, error: "user_not_found" });
+      return next(err);
     }
 
     // JSON body with base64 data URL
@@ -793,6 +886,8 @@ export const analyzeChatImage = async (req, res, next) => {
         { maxBodyLength: Infinity }
       );
     } catch (err) {
+      // Refund credits on Groq failure
+      await User.findByIdAndUpdate(req.user._id, { $inc: { credits: 6 } });
       if (err.response) {
         const { status, statusText, data } = err.response;
         return next(
@@ -810,17 +905,7 @@ export const analyzeChatImage = async (req, res, next) => {
         .status(500)
         .json({ ok: false, error: "empty_vision_response" });
 
-    try {
-      await deductCredits(req.user._id, 6);
-    } catch (err) {
-      if (err.message === "insufficient_credits")
-        return res
-          .status(402)
-          .json({ ok: false, error: "insufficient_credits" });
-      if (err.message === "not_found")
-        return res.status(404).json({ ok: false, error: "user_not_found" });
-      return next(err);
-    }
+
 
     content = content.trim();
     if (content.startsWith("```json"))
@@ -831,13 +916,28 @@ export const analyzeChatImage = async (req, res, next) => {
 
     const parsed = JSON.parse(content);
 
+    const usage = resp.data?.usage || null;
+    const modelUsed = resp.data?.model || "meta-llama/llama-4-scout-17b-16e-instruct";
+
     // Save history
+    const cost = calculateCostINR(modelUsed, usage);
+
     await GenerationHistory.create({
       userId: req.user._id,
       type: "chat_image_analysis",
       input: { source: "image" },
       output: parsed,
+      model: modelUsed,
+      tokenUsage: usage ? {
+        promptTokens: usage.prompt_tokens || 0,
+        completionTokens: usage.completion_tokens || 0,
+        totalTokens: usage.total_tokens || 0,
+      } : undefined,
+      costINR: cost,
     });
+
+    // Permanent aggregate stats
+    await recordPermanentStats("chat_image_analysis", usage, cost);
 
     return res.json({ ok: true, result: parsed });
   } catch (err) {

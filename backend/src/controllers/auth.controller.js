@@ -17,7 +17,7 @@ const sanitizeString = (str, maxLength = 50) => {
 
 export const signupController = async (req, res, next) => {
   try {
-    const { username, phone, otp ,ref } = req.body;
+    const { username, phone, otp, ref, gender } = req.body;
     
     if (!username || !phone || !otp) {
       return res
@@ -38,6 +38,7 @@ export const signupController = async (req, res, next) => {
     let user = await User.create({
       username: sanitizeString(username, 50),
       phone: normalized,
+      gender: ["male", "female", "prefer_not_to_say"].includes(gender) ? gender : "prefer_not_to_say",
       phoneVerified: true,
       createdAt: now,
       lastLoginAt: now,

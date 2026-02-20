@@ -2,6 +2,7 @@ import Influencer from "../models/influencer.model.js";
 import PaymentHistory from "../models/paymentHistory.model.js";
 import mongoose from "mongoose";
 import { generate } from "referral-codes";
+import AiUsageStats from "../models/aiUsageStats.model.js";
 /**
  * Create influencer
  */
@@ -112,6 +113,56 @@ export const payNow = async (req, res, next) => {
     });
 
     return res.json({ ok: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * List query logs (generation history) for admin dashboard.
+ * Recent logs come from GenerationHistory (last 48h).
+ * Aggregate totals come from permanent AiUsageStats collection.
+ */
+export const listQueryLogs = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 50, type } = req.query;
+    const filter = {};
+    if (type && type !== "all") filter.type = type;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const GenerationHistory = mongoose.model("GenerationHistory");
+
+    // Fetch recent logs (within 48h window) and permanent totals in parallel
+    const statsFilter = (type && type !== "all") ? type : "_all";
+
+    const [items, total, permanentStats] = await Promise.all([
+      GenerationHistory
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .populate("userId", "username phone")
+        .lean(),
+      GenerationHistory.countDocuments(filter),
+      AiUsageStats.findOne({ type: statsFilter }).lean(),
+    ]);
+
+    const totals = permanentStats || { totalCostINR: 0, totalTokens: 0, totalRequests: 0 };
+
+    return res.json({
+      ok: true,
+      data: {
+        items,
+        total,
+        page: Number(page),
+        totals: {
+          costINR: Number((totals.totalCostINR || 0).toFixed(4)),
+          tokens: totals.totalTokens || 0,
+          requests: totals.totalRequests || 0,
+        },
+      },
+    });
   } catch (err) {
     next(err);
   }

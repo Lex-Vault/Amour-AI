@@ -16,11 +16,12 @@ import RazorpayPaymentPage from "./pages/RazorPayPaymentPage";
 import AdminInfluencers from "./pages/AdminInfluencers";
 import History from "./pages/History";
 import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 axios.defaults.withCredentials = true; // global
-// axios.defaults.baseURL = "http://localhost:4000";
-axios.defaults.baseURL = "https://amour-ai.vercel.app/";
+axios.defaults.baseURL = "http://localhost:4000";
+// axios.defaults.baseURL = "https://amour-ai.vercel.app/";
 
 function App() {
   return (
@@ -39,12 +40,12 @@ function App() {
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
-              <Route path="/buy-credits" element={<RazorpayPaymentPage />} />
-              <Route path="/tools/chat-analyzer" element={<ChatAnalyzer />} />
-              <Route path="/tools/bio-generator" element={<BioGenerator />} />
-              <Route path="/tools/dp-analyzer" element={<DpAnalyzer />} />
-              <Route path="/admin" element={<AdminInfluencers />} />
-              <Route path="/history" element={<History />} />
+              <Route path="/buy-credits" element={<ProtectedRoute><RazorpayPaymentPage /></ProtectedRoute>} />
+              <Route path="/tools/chat-analyzer" element={<ProtectedRoute><ChatAnalyzer /></ProtectedRoute>} />
+              <Route path="/tools/bio-generator" element={<ProtectedRoute><BioGenerator /></ProtectedRoute>} />
+              <Route path="/tools/dp-analyzer" element={<ProtectedRoute><DpAnalyzer /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute><AdminInfluencers /></ProtectedRoute>} />
+              <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

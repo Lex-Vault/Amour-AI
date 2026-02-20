@@ -44,9 +44,7 @@ const ChatAnalyzer = () => {
   const [result, setResult] = useState(null);
   const { toast } = useToast();
   const { user, fetchUser } = useAuth();
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+
   const handleFileChange = (f?: File) => {
     if (!f) {
       setFile(null);

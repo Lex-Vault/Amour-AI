@@ -9,6 +9,7 @@ const Signup = () => {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [username, setUsername] = useState("");
+  const [gender, setGender] = useState("male");
   const [otpSent, setOtpSent] = useState(false);
   const [searchParams] = useSearchParams();
   const ref = searchParams.get("ref");
@@ -124,7 +125,7 @@ const Signup = () => {
     }
 
     setSigningUp(true);
-    await signUpApp({ username, phone, otp,ref });
+    await signUpApp({ username, phone, otp, ref, gender });
     setSigningUp(false);
   };
 
@@ -142,7 +143,7 @@ const Signup = () => {
       {/* Content */}
       <div className="relative z-10 w-full max-w-md mx-auto px-6">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 mb-6 shadow-lg shadow-orange-500/30">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
@@ -156,7 +157,7 @@ const Signup = () => {
 
         {/* Form Card */}
         <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-8 mb-6 shadow-2xl">
-          <form onSubmit={onSubmit} className="space-y-6">
+          <form onSubmit={onSubmit} className="space-y-4">
             {/* Username Input */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-white">
@@ -169,6 +170,33 @@ const Signup = () => {
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-5 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500/50 focus:bg-white/10 transition-all duration-300"
               />
+            </div>
+
+            {/* Gender Selection */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-white">
+                Gender
+              </label>
+              <div className="flex gap-3">
+                {[
+                  { value: "male", label: "Male" },
+                  { value: "female", label: "Female" },
+                  { value: "prefer_not_to_say", label: "Prefer not to say" },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setGender(option.value)}
+                    className={`flex-1 md:py-2 px-3 rounded-xl text-sm font-medium transition-all duration-300 border ${
+                      gender === option.value
+                        ? "bg-gradient-to-r from-orange-500/30 to-red-600/30 border-orange-500 text-orange-300"
+                        : "bg-white/5 border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-300"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Phone Input */}

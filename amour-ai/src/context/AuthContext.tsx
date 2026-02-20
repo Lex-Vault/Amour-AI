@@ -1,6 +1,7 @@
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 const TOKEN_KEY = "amour_token";
 
@@ -19,7 +20,7 @@ interface AuthContextType {
   loginApp: (data: { phone: string; otp: string }) => Promise<void>;
   logOutApp: () => Promise<void>;
   fetchUser: () => Promise<User | null>;
-  signUpApp: (data: { username: string; phone: string; otp: string; ref?: string }) => Promise<void>;
+  signUpApp: (data: { username: string; phone: string; otp: string; ref?: string; gender?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -39,10 +40,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const initialLoadDone = useRef(false);
 
   const fetchUser = useCallback(async () => {
     try {
-      setLoading(true);
+      // Only show loading spinner on initial load, not on refresh
+      // This prevents ProtectedRoute from unmounting/remounting pages
+      if (!initialLoadDone.current) setLoading(true);
       const res = await axios.get("/api/auth/me");
       if (res.status === 200 && res.data?.ok) {
         const userData = res.data.data;
@@ -54,11 +59,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (err) {
       setUser(null);
-      // Don't clear session here automatically on network error, 
-      // but if 401 it might be good. For now, rely on user to logout or retry.
       return null;
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
   }, []);
 
@@ -71,7 +75,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     fetchUser();
   }, [fetchUser]);
 
-  const signUpApp = async (data: { username: string; phone: string; otp: string; ref?: string }) => {
+  const signUpApp = async (data: { username: string; phone: string; otp: string; ref?: string; gender?: string }) => {
     try {
       const res = await axios.post("/api/auth/signup", data);
 
@@ -147,7 +151,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             description: "Login successful!",
             variant: "default",
           });
-          window.location.href = "/";
+          navigate("/");
         } else {
            // With token in localStorage, this is very unlikely unless API failure
            setUser(null);
@@ -176,7 +180,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setSession(null);
     setUser(null);
-    window.location.href = "/login";
+    navigate("/login");
   };
 
   return (

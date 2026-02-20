@@ -20,10 +20,23 @@ const GenerationHistorySchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     required: true,
   },
+  model: {
+    type: String,
+    default: null,
+  },
+  tokenUsage: {
+    promptTokens: { type: Number, default: 0 },
+    completionTokens: { type: Number, default: 0 },
+    totalTokens: { type: Number, default: 0 },
+  },
+  costINR: {
+    type: Number, // cost in INR (paisa-level precision)
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 60 * 60 * 48, // TTL: 48 hours
+    expires: 60 * 60 * 48, // TTL: auto-delete after 48 hours
   },
 });
 

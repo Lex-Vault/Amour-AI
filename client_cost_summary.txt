@@ -1,0 +1,47 @@
+AMOUR AI COST SUMMARY + PROFIT REPORT
+
+--------------------------------------------------------------------------------
+1. COST PER USER ACTION (What you pay)
+--------------------------------------------------------------------------------
+
+Feature: BIO GENERATOR
+  - User gets: 3 new bios
+  - Your cost: $0.0002 (Less than 1/50th of a penny)
+  - Verdict: Basically free.
+
+Feature: CHAT ANALYSIS
+  - User gets: Full chat breakdown & advice
+  - Your cost: $0.0015 (Less than 1/6th of a penny)
+  - Verdict: Extremely cheap.
+
+Feature: PHOTO ANALYSIS
+  - User gets: Detailed photo rating & tips
+  - Your cost: $0.0080 (Just under 1 penny)
+  - Verdict: Still very cheap, but is your main cost driver.
+
+--------------------------------------------------------------------------------
+2. YOUR PROFIT MARGINS (Example)
+--------------------------------------------------------------------------------
+
+Scenario: You sell 100 Credits for $0.99
+
+-- Example A: User makes 50 Bios (2 credits each) --
+  - You earn: $0.99
+  - You pay:  $0.01 (Server costs)
+  - PROFIT:   $0.98  (99% Margin)  [EXCELLENT]
+
+-- Example B: User analyzes 16 Photos (6 credits each) --
+  - You earn: $0.99
+  - You pay:  $0.13 (Server costs)
+  - PROFIT:   $0.86  (87% Margin)  [EXCELLENT]
+
+--------------------------------------------------------------------------------
+3. RECOMMENDATION
+--------------------------------------------------------------------------------
+
+- Keep your current pricing. It is working perfectly.
+- You are making at least 85 cents profit on every dollar spent.
+- OPTIONAL: Increase Photo Analysis from 6 to 10 credits to match costs better, but not urgent.
+
+--------------------------------------------------------------------------------
+(Based on current market rates for Llama 3 models on Groq)
