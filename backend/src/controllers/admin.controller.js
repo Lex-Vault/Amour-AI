@@ -1,5 +1,6 @@
 import Influencer from "../models/influencer.model.js";
 import PaymentHistory from "../models/paymentHistory.model.js";
+import User from "../models/user.model.js";
 import mongoose from "mongoose";
 import { generate } from "referral-codes";
 import AiUsageStats from "../models/aiUsageStats.model.js";
@@ -33,6 +34,7 @@ export const createInfluencer = async (req, res, next) => {
       totalEarning,
       pendingPayment,
       referalLink,
+      referralLinkExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
     return res.status(201).json({ ok: true, data: infl });
   } catch (err) {
@@ -119,6 +121,39 @@ export const payNow = async (req, res, next) => {
 };
 
 /**
+ * Regenerate referral link for an influencer — new code + 30-day expiry
+ */
+export const regenerateReferralLink = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const newLink = generate({
+      prefix: "influ-",
+      postfix: "2026",
+    })[0];
+
+    const updated = await Influencer.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          referalLink: newLink,
+          referralLinkExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          isActive: true,
+        },
+      },
+      { new: true }
+    ).lean();
+
+    if (!updated) {
+      return res.status(404).json({ ok: false, error: "influencer_not_found" });
+    }
+
+    return res.json({ ok: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
  * List query logs (generation history) for admin dashboard.
  * Recent logs come from GenerationHistory (last 48h).
  * Aggregate totals come from permanent AiUsageStats collection.
@@ -163,6 +198,21 @@ export const listQueryLogs = async (req, res, next) => {
         },
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Get user stats: total users + paid users
+ */
+export const getUserStats = async (req, res, next) => {
+  try {
+    const [totalUsers, paidUsers] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ userType: "paid" }),
+    ]);
+    return res.json({ ok: true, data: { totalUsers, paidUsers } });
   } catch (err) {
     next(err);
   }

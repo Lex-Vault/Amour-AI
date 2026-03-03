@@ -35,6 +35,18 @@ export const signupController = async (req, res, next) => {
     //   return res.status(400).json({ ok: false, error: "invalid_otp" });
     // }
     const now = new Date();
+
+    // Handle referral — validate before creating user
+    let referringInfluencer = null;
+    if (ref) {
+      referringInfluencer = await influencerModel.findOne({
+        referalLink: ref,
+        isActive: true,
+        referralLinkExpiresAt: { $gt: now },
+      });
+      // Silently ignore invalid/expired links — user can still sign up
+    }
+
     let user = await User.create({
       username: sanitizeString(username, 50),
       phone: normalized,
@@ -42,15 +54,14 @@ export const signupController = async (req, res, next) => {
       phoneVerified: true,
       createdAt: now,
       lastLoginAt: now,
+      referredBy: referringInfluencer ? referringInfluencer._id : null,
     });
 
-    if (ref) {
-      // Handle referral logic here
-      const referrer = await influencerModel.findOne({ referalLink: ref });
-      if (referrer) {
-        referrer.referralCount += 1;
-        await referrer.save();
-      }
+    // Increment influencer's referral count
+    if (referringInfluencer) {
+      await influencerModel.findByIdAndUpdate(referringInfluencer._id, {
+        $inc: { referralCount: 1 },
+      });
     }
 
     const token = generateToken(user);
@@ -147,7 +158,7 @@ export const sendOtpController = async (req, res, next) => {
     }
 
     try {
-      // await sendOtp(normalized); // your existing Twilio wrapper
+      // await sendOtp(normalized);
       return res.status(200).json({ ok: true, data: { message: "otp_sent" } });
     } catch (twErr) {
       console.warn("Twilio sendOtp error", twErr?.message || twErr);

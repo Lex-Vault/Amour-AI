@@ -5,12 +5,18 @@ import {
   RAZORPAY_KEY_SECRET,
 } from "../config/razorPay.js";
 import User from "../models/user.model.js";
+import Influencer from "../models/influencer.model.js";
 
+// Maps amountRupees → credits for each plan
+// Weekly: Lite ₹49 (12), Plus ₹149 (35), Pro ₹299 (70)
+// Monthly: Lite ₹199 (50), Plus ₹499 (160), Pro ₹999 (350)
 const PRICING = {
-  99: 10,
-  249: 30,
-  449: 55,
-  699: 90,
+  49: 12,
+  149: 35,
+  299: 70,
+  199: 50,
+  499: 160,
+  999: 350,
 };
 
 export const createOrder = async (req, res) => {
@@ -135,6 +141,28 @@ export const verifyPayment = async (req, res) => {
         message: "order_already_applied",
         credits: existing.credits,
       });
+    }
+
+    // --- First-purchase logic ---
+    // Mark user as "paid" if they were "free"
+    if (updatedUser.userType === "free") {
+      await User.findByIdAndUpdate(userId, { $set: { userType: "paid" } });
+    }
+
+    // 10% commission to influencer on FIRST purchase only
+    if (
+      updatedUser.referredBy &&
+      !updatedUser.influencerCommissionPaid
+    ) {
+      const commissionAmount = Math.round(Number(amountRupees) * 0.10); // 10% of purchase in rupees
+      if (commissionAmount > 0) {
+        await Influencer.findByIdAndUpdate(updatedUser.referredBy, {
+          $inc: { pendingPayment: commissionAmount },
+        });
+        await User.findByIdAndUpdate(userId, {
+          $set: { influencerCommissionPaid: true },
+        });
+      }
     }
 
     // Success: credits added

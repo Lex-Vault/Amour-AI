@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
+import UserAvatar from "./UserAvatar";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -16,7 +17,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <UserAvatar />
+      {children}
+    </>
+  );
 };
 
 export default ProtectedRoute;

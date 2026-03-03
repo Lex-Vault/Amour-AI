@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Plus, X, DollarSign, Users, TrendingUp, FileText, Activity } from "lucide-react";
+import { Search, Plus, X, DollarSign, Users, TrendingUp, FileText, Activity, RefreshCw } from "lucide-react";
 import axios from "axios";
 
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,9 @@ export default function AdminInfluencers() {
   const [logsTotals, setLogsTotals] = useState({ costINR: 0, tokens: 0, requests: 0 });
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsFilter, setLogsFilter] = useState("all");
+
+  // User stats state
+  const [userStats, setUserStats] = useState({ totalUsers: 0, paidUsers: 0 });
 
 
   //Function to add text to clipboard
@@ -60,6 +63,10 @@ export default function AdminInfluencers() {
   };
   useEffect(() => {
     fetchList();
+    // Fetch user stats
+    axios.get("/api/admin/user-stats").then(res => {
+      if (res.data?.ok) setUserStats(res.data.data);
+    }).catch(console.error);
   }, [page]);
 
   // Fetch query logs
@@ -87,6 +94,26 @@ export default function AdminInfluencers() {
     setSelected(infl);
     setPayAmount("");
     setNote("");
+  };
+
+  const regenerateLink = async (inflId: string) => {
+    try {
+      const res = await axios.post(`/api/admin/influencers/${inflId}/regenerate-link`);
+      setList((prev) =>
+        prev.map((i) => (i._id === inflId ? res.data.data : i))
+      );
+      toast({
+        title: "Link Regenerated",
+        description: "New referral link generated with 30-day expiry.",
+        variant: "success",
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err?.response?.data?.error || "Failed to regenerate link",
+        variant: "destructive",
+      });
+    }
   };
 
   const doPay = async () => {
@@ -215,7 +242,7 @@ const totalEarnings = list.reduce((sum, i) => sum + Number(i.totalEarning || 0),
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-12">
           <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all">
             <div className="flex items-center justify-between">
               <div>
@@ -260,6 +287,38 @@ const totalEarnings = list.reduce((sum, i) => sum + Number(i.totalEarning || 0),
               </div>
               <div className="p-3 rounded-xl bg-blue-500/20 border border-blue-500/30">
                 <Users className="w-6 h-6 text-blue-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm font-medium mb-1">
+                  Total Users
+                </p>
+                <p className="text-4xl font-bold text-purple-400">
+                  {userStats.totalUsers}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-purple-500/20 border border-purple-500/30">
+                <Users className="w-6 h-6 text-purple-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm font-medium mb-1">
+                  Paid Customers
+                </p>
+                <p className="text-4xl font-bold text-emerald-400">
+                  {userStats.paidUsers}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
+                <Activity className="w-6 h-6 text-emerald-400" />
               </div>
             </div>
           </div>
@@ -348,7 +407,11 @@ const totalEarnings = list.reduce((sum, i) => sum + Number(i.totalEarning || 0),
                     </td>
                   </tr>
                 ) : null}
-                {filteredList.map((i, idx) => (
+                {filteredList.map((i, idx) => {
+                  const isExpired = i.referralLinkExpiresAt && new Date(i.referralLinkExpiresAt) < new Date();
+                  const expiryDate = i.referralLinkExpiresAt ? new Date(i.referralLinkExpiresAt).toLocaleDateString() : "—";
+                  const referralUrl = `${window.location.origin}/signup?ref=${i.referalLink}`;
+                  return (
                   <tr
                     key={i._id}
                     className="border-b border-white/5 hover:bg-white/5 transition-colors"
@@ -362,16 +425,18 @@ const totalEarnings = list.reduce((sum, i) => sum + Number(i.totalEarning || 0),
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() =>
-                          copyToClipboard(
-                            `http://localhost:8080/signup?ref=${i.referalLink}` // use template literal
-                          )
-                        }
-                        className="inline-flex items-center px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm font-medium"
-                      >
-                        {`http://localhost:8080/signup?ref=${i.referalLink}`}
-                      </button>
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={() => copyToClipboard(referralUrl)}
+                          className="inline-flex items-center px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs font-medium truncate max-w-[300px]"
+                          title={referralUrl}
+                        >
+                          {referralUrl}
+                        </button>
+                        <span className={`text-xs ${isExpired ? 'text-red-400' : 'text-green-400'}`}>
+                          {isExpired ? `Expired` : `Active till ${expiryDate}`}
+                        </span>
+                      </div>
                     </td>
 
                     <td className="px-6 py-4 text-gray-400 text-sm">
@@ -388,15 +453,29 @@ const totalEarnings = list.reduce((sum, i) => sum + Number(i.totalEarning || 0),
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => openPay(i)}
-                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500/80 to-red-600/80 hover:from-orange-600 hover:to-red-700 text-white font-medium text-sm transition-all hover:scale-105"
-                      >
-                        Pay
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openPay(i)}
+                          className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500/80 to-red-600/80 hover:from-orange-600 hover:to-red-700 text-white font-medium text-sm transition-all hover:scale-105"
+                        >
+                          Pay
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Regenerate link for ${i.name}? The current link will stop working immediately.`)) {
+                              regenerateLink(i._id);
+                            }
+                          }}
+                          className="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500/80 to-indigo-600/80 hover:from-blue-600 hover:to-indigo-700 text-white font-medium text-sm transition-all hover:scale-105 flex items-center gap-1"
+                          title="Regenerate referral link"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
