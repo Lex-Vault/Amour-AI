@@ -20,8 +20,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 axios.defaults.withCredentials = true; // global
-axios.defaults.baseURL = "http://localhost:4000";
-// axios.defaults.baseURL = "https://amour-ai.vercel.app/";
+// axios.defaults.baseURL = "http://localhost:4000";
+axios.defaults.baseURL = "https://amour-ai.vercel.app/";
 
 function App() {
   return (

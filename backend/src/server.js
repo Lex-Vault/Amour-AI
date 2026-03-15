@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 4000;
 app.use(helmet());
 app.use(
   cors({
-    origin: [process.env.CLIENT_URL,"https://amour123.netlify.app"],
+    origin: [process.env.CLIENT_URL,"https://amour123.netlify.app","http://localhost:8080"],
     credentials: true, // allow cookies
   })
 );
