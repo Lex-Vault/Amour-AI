@@ -14,6 +14,18 @@ const UserSchema = new Schema({
   lastLoginAt: { type: Date },
   credits: { type: Number, default: 4 },
   creditedOrders: { type: [String], default: [] },
+  // Subscription (autopay) fields
+  subscription: {
+    razorpaySubscriptionId: { type: String, default: null },
+    planKey: { type: String, default: null },       // e.g. "weekly_plus"
+    status: {
+      type: String,
+      enum: ["created", "authenticated", "active", "pending", "halted", "cancelled", "completed", "expired", null],
+      default: null,
+    },
+    currentPeriodEnd: { type: Date, default: null },
+    creditsPerCycle: { type: Number, default: 0 },  // credits granted each billing cycle
+  },
 });
 
 export default mongoose.model("User", UserSchema);

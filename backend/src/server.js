@@ -28,13 +28,19 @@ app.use(
 );
 
 
-app.use(express.json({ limit: "12mb" }));
+app.use(express.json({
+  limit: "12mb",
+  verify: (req, _res, buf) => {
+    // Preserve raw body for webhook signature verification
+    req.rawBody = buf.toString();
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/ai", protectRoute, aiRoutes);
-app.use("/api/payment", protectRoute, paymentRoutes);
+app.use("/api/payment", paymentRoutes); // routes handle auth individually (webhook must be public)
 app.use("/api/admin", protectRoute, adminRoutes);
 
 app.use(errorHandler);

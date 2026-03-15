@@ -12,6 +12,13 @@ interface User {
   phoneVerified: boolean;
   credits?: number;
   adminAccess?: boolean;
+  subscription?: {
+    razorpaySubscriptionId?: string;
+    planKey?: string;
+    status?: string;
+    currentPeriodEnd?: string;
+    creditsPerCycle?: number;
+  };
 }
 
 interface AuthContextType {
